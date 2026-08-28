@@ -1,6 +1,6 @@
 <?php
 // MODPATH/about/init.php
-defined('SUMMARY_VERSION') OR define('SUMMARY_VERSION', '2.0.2');
+defined('DASHBOARD_VERSION') OR define('DASHBOARD_VERSION', '2.0.3');
 
 	
 	
