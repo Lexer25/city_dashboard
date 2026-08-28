@@ -1,6 +1,6 @@
 <?php
 // MODPATH/about/init.php
-defined('SUMMARY_VERSION') OR define('SUMMARY_VERSION', '2.0.1');
+defined('SUMMARY_VERSION') OR define('SUMMARY_VERSION', '2.0.2');
 
 	
 	
