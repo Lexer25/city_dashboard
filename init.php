@@ -1,6 +1,6 @@
 <?php
 // MODPATH/about/init.php
-defined('DASHBOARD_VERSION') OR define('DASHBOARD_VERSION', '2.0.3');
+defined('DASHBOARD_VERSION') OR define('DASHBOARD_VERSION', '2.0.4');
 
 	
 	
@@ -13,3 +13,9 @@ Kohana::$config->load('menu')
 		'disabled' => true, 
         
     ));
+	
+Route::set('default_modules', '(<controller>(/<action>(/<id>)))')
+	->defaults(array(
+		'controller' => 'dashboard',
+		'action'     => 'index',
+	));
