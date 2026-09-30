@@ -14,8 +14,8 @@ Kohana::$config->load('menu')
         
     ));
 	
-Route::set('default_modules', '(<controller>(/<action>(/<id>)))')
+/* Route::set('default_modules', '(<controller>(/<action>(/<id>)))')
 	->defaults(array(
 		'controller' => 'dashboard',
 		'action'     => 'index',
-	));
+	)); */
