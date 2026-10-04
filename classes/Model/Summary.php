@@ -17,7 +17,9 @@ class Model_Summary extends Model
     (SELECT COUNT(*) FROM CARD WHERE TIMEEND < \''.$dateExpired.'\') AS CARD_EXPIRED_ON_DATE,
     (SELECT COUNT(*) FROM CARD WHERE "ACTIVE" = 0) AS CARD_INACTIVE
 		FROM PEOPLE P
-		LEFT JOIN CARD C ON C.ID_PEP = P.ID_PEP AND C.ID_DB = P.ID_DB;;';
+		LEFT JOIN CARD C ON C.ID_PEP = P.ID_PEP AND C.ID_DB = P.ID_DB';
+	
+
 		$query = DB::query(Database::SELECT, iconv('UTF-8','windows-1251',$sql))
 			->execute(Database::instance('fb'))
 			->current();

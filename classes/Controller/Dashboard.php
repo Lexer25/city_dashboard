@@ -17,91 +17,37 @@ class Controller_dashboard extends Controller_Template {
 		
 	}
 	
-
-	
-		
 	public function action_index()
-	{	
-				$t1=microtime(1);
-				
-	$config_windows=Kohana::$config->load('artonitcity_config')->main_windows;
-			
-			
-	// подготовка и вывод информации для панелей №№ 1, 2, 3.
-		
-		$_SESSION['menu_active']='index';
-		$list=array();
-		$event_stat=array();
-		$system_events=array();
-		$list_windows1=array();
-		$list_windows2=array();
-		$list_windows3=array();
-		$t1=microtime(true);
-		
-		if(Arr::get($config_windows, 'windows1', FALSE)) 
-		{
-			$list_windows1=$this->getWin1();
-			//$list_windowsGuest=$this->getWin1Guest();
-			
-		}
-		
-		if(Arr::get($config_windows, 'windows2', FALSE)) $list_windows2=Model::Factory('Stat')->getEquipment();//оборудование
-		
-		if(Arr::get($config_windows, 'windows3', FALSE)) $list_windows3=Model::Factory('Stat')->getLoadOrder();//очередь загрузок
-		
-		
-		$analyt_result = Model::Factory('Stat')->analyt_result();// 26.02.2020 подсчет аналитики
-		$timeExecute=microtime(1)-$t1;
-		$countErrKeyFormatRfid=count(Model::factory('dbskud')->checkRfidKeyFormat());
-		//echo Debug::vars('57',$analyt_result, $list ); exit;
-		$_connectName='fb';
-		$about=Model::factory('Parkdb')->aboutDB($_connectName);
-		$content = View::factory('dashboard/dashboard', array(
-			'list_windows1' => $list_windows1,
-			//'list_windowsGuest' => $list_windowsGuest,
-			'list_windows2' => $list_windows2,
-			'list_windows3' => $list_windows3,
-			'analyt_result' => $analyt_result,
-			'countErrKeyFormatRfid' => $countErrKeyFormatRfid,	
-			'about' => $about,	
-			'config_windows' => $config_windows,//информация о разрешенных окнах
-			
-			));
-		
-		$this->template->content = $content;
-		//echo View::factory('profiler/stats');
-		
-	}
-	
-	/**31.03.2026 Сбор информации для окна №1
-					
-	*/
-			public function getWin1()
-			{
-				$config = Kohana::$config->load('artonitcity_config');
-				$days = (int) $config->count_day_befor_end_time;
-				$dateExpired=date('d.m.Y', strtotime("+{$days} days"));//дата для расчета
-				$people_model = Model::factory('summary');
-				$counts=$people_model->peopleCounts($dateExpired);
+	{
+		$config_windows = Kohana::$config->load('artonitcity_config')->main_windows;
+		$_SESSION['menu_active'] = 'index';
 
-	
-				$result=array();
-				$result['people_count']=Arr::get($counts, 'PEOPLE_TOTAL', 22);//количество пользователей
-				$result['key_people_delete']=Arr::get($counts, 'PEOPLE_INACTIVE');//количество удаленных пользователей
-				$result['getPeopleWithoutCard']=Arr::get($counts, 'PEOPLE_WITHOUT_CARD');//количество сотрудников без карты
-				
-                $result['timeExpired']=$dateExpired;//дата для расчета
-				$result['count_card_late_next_week']=Arr::get($counts, 'CARD_EXPIRED_ON_DATE');//количество карт, срок которых истечет до указанной даты
-				$result['getcardexpired']=Arr::get($counts, 'CARD_EXPIRED');//количество карт, у которых истек срок действия
-				$result['getCardNotActive']=Arr::get($counts, 'CARD_INACTIVE');//количество неактивных идентификаторов
-				$result['getPeopleCardCount']=Arr::get($counts, 'CARD_TYPE1_TOTAL');//Всего карт
-				
-	
-				
-				return $result;
-			}
-			
-			
+		// Вся сборка данных — в сервисе
+		$service = new Service_Dashboard();
+		$data = $service->getDashboardData($config_windows);
+		$data['countErrKeyFormatRfid'] = count($service->checkRfidKeyFormat());
+
+		// То, что не относится к «сборке данных» (счётчики-однострочники),
+		// можно оставить в контроллере или тоже перенести в сервис.
+		//$countErrKeyFormatRfid = count(Model::factory('dbskud')->checkRfidKeyFormat());
+		$about = Model::factory('Parkdb')->aboutDB('fb');
+
+		$content = View::factory('dashboard/dashboard', array(
+			'list_windows1'         => $data['windows1'],
+			'list_windows2'         => $data['windows2'],
+			'list_windows3'         => $data['windows3'],
+			'analyt_result'         => $data['analyt_result'],
+			'countErrKeyFormatRfid' => $data['countErrKeyFormatRfid'] ,
+			'about'                 => $about,
+			'config_windows'        => $config_windows,
+		));
+
+		$this->template->content = $content;
+	}
+		
+		
+
+
 			
 		/**2.04.2026 Сбор информации для окна №1 по бюро пропусков
 					
@@ -126,6 +72,7 @@ class Controller_dashboard extends Controller_Template {
 				
 				return $result;
 			}
+			
 			
 			
 			
@@ -167,35 +114,67 @@ class Controller_dashboard extends Controller_Template {
 		
 	}
 
-	public function action_log()// просмотр лог-файлы
-	{
-		$_SESSION['menu_active']='log';
-		$res1=Model::Factory('Log')->getList();
-		$res2=Model::Factory('Log')->getListCompare();
-		
-		$content=View::factory('dashboard/Log', array(
-			'list1'=> $res1,
-			'list2'=> $res2,
+		public function action_log()
+		{
+			$_SESSION['menu_active'] = 'log';
+
+			$config = Kohana::$config->load('artonitcity_config');
+
+			// Левая колонка — рекурсивный список старых логов
+			$res1 = Model::Factory('Log')->getList();
+
+			// Правое окно — framework
+			$rootFramework  = $config->dir_log_framework;
+			$subPathFramework = Arr::get($_GET, 'path1', '');
+			$extsFramework    = array('php', 'log', 'txt', 'csv');
+			$fm = Model::Factory('Log')->listDirectory($rootFramework, $subPathFramework, $extsFramework);
+
+			// Третье окно — dir_log_ArtonitServices
+			$rootServices   = $config->dir_log_ArtonitServices;
+			$subPathServices = Arr::get($_GET, 'path2', '');
+			$extsServices    = array('json', 'txt', 'log');
+			$fmServices = Model::Factory('Log')->listDirectory($rootServices, $subPathServices, $extsServices);
+
+			$content = View::factory('dashboard/log', array(
+				'list1'       => $res1,
+				'fm'          => $fm,
+				'root'        => $rootFramework,
+				'fm_services' => $fmServices,
+				'root_services' => $rootServices,
 			));
-		$this->template->content = $content;
-	}
-	
-	public function action_sendFile ()//передача данных пользователю
-	{
-		$file=Arr::get($_GET, 'name');	
-		$content = Model::Factory('Log')->send_file($file);
-		$this->template->content = $content;
-	}
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+			$this->template->content = $content;
+		}
+
+		public function action_sendFile()
+		{
+			$file = Arr::get($_GET, 'name');
+
+			$config = Kohana::$config->load('artonitcity_config');
+
+			// Разрешаем отдавать только из dir_log_framework, dir_log, dir_compare
+			$allowedDirs = array();
+			foreach (array('dir_log_framework', 'dir_log', 'dir_compare') as $key) {
+				$d = realpath($config->$key);
+				if ($d) {
+					$allowedDirs[] = $d;
+				}
+			}
+
+			$realFile = realpath($file);
+			$allowed  = FALSE;
+			foreach ($allowedDirs as $dir) {
+				if ($realFile && strpos($realFile, $dir) === 0) {
+					$allowed = TRUE;
+					break;
+				}
+			}
+
+			if (!$allowed || !is_file($realFile)) {
+				throw new HTTP_Exception_404('File not found');
+			}
+
+			Model::Factory('Log')->send_file($realFile);
+		}
     
 	public function ErrMess ($err=false)
 	{
@@ -263,7 +242,7 @@ class Controller_dashboard extends Controller_Template {
 						'isWP',
 						'isTest',
 						'door_0',
-						'doore_1',
+						'door_1',
 						'inputPortState',
 						'softVersion',
 						'keyCount',
@@ -389,25 +368,5 @@ class Controller_dashboard extends Controller_Template {
 				}
 		}
 	}
-	
-	public function parsFromStrToStr($strdata, $strFrom, $startShift, $strTo)
-	{
-		
-		if(!$strdata) {
-			Log::instance()->add(Log::DEBUG, 'Line 269. Входящая строка для анализа пустая. Работа парсера прекращается.');	
-				
-			return '';
-		}
-		
-		$_startPosition=strpos($strdata, $strFrom)+$startShift;
-		$_stopPosition=strpos($strdata, $strTo, $_startPosition);
-//echo Debug::vars('169', $_startPosition, $_stopPosition , substr($strdata, $_startPosition, $_stopPosition-$_startPosition)); exit;
-		if($_stopPosition-$_startPosition >0) {
-			return substr($strdata, $_startPosition, $_stopPosition-$_startPosition);
-		} else return '';
-		
-		
-	}
-	
 	
 }
